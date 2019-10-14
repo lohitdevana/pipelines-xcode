@@ -3,13 +3,54 @@
 # Add steps that install certificates, test, sign, and distribute the app, save build artifacts, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/xcode
 
+
 pool:
-  vmImage: 'macOS 10.13'
+vmImage: 'macOS-latest'
 
 steps:
+- task: InstallAppleCertificate@2
+inputs:
+certSecureFile: 'Signing Cert.p12'
+certPwd: (ommitted)
+keychain: 'temp'
+
+- task: InstallAppleProvisioningProfile@1
+inputs:
+provisioningProfileLocation: 'secureFiles'
+provProfileSecureFile: 'Bernstein_Private_Wealth.mobileprovision'
+removeProfile: false
+
+- task: Bash@3
+inputs:
+targetType: 'inline'
+script: 'sudo xcode-select -s /Applications/Xcode_11.1.app'
+- task: CocoaPods@0
+displayName: 'Install dependencies'
+inputs: 
+forceRepoUpdate: 'true'
+
 - task: Xcode@5
-  inputs:
-    scheme: ''
-    sdk: 'iphoneos'
-    configuration: 'Release'
-    xcodeVersion: 'default' # Options: 8, 9, default, specifyPath
+inputs:
+actions: 'build'
+configuration: 'Release'
+sdk: 'iphoneos'
+xcWorkspacePath: 'PrivateWealth.xcworkspace'
+scheme: 'PrivateWealth'
+xcodeVersion: '11'
+packageApp: true
+signingOption: 'manual'
+teamId: 'EX8RB2N6J4'
+provisioningProfileUuid: '9b9b5988-8527-4d85-9d9b-bd9b91b9ba11'
+provisioningProfileName: 'Bernstein Private Wealth'
+
+- task: ArchiveFiles@2
+displayName: 'Package .xcarchive into a zip file'
+inputs:
+rootFolderOrFile: '$(agent.buildDirectory)/PrivateWealth.xcarchive/'
+archiveFile: '$(build.artifactStagingDirectory)/PrivateWealth.xcarchive.zip'
+
+- task: PublishBuildArtifacts@1
+inputs:
+pathToPublish: '$(build.artifactStagingDirectory)/PrivateWealth.xcarchive.zip'
+artifactName: 'xcarchive-files'
+artifactType: 'container'
